@@ -164,6 +164,8 @@ def get_photo_with_comments(photo_id):
 
     return jsonify(response)
 
+def test():
+    ...
 
 if __name__ == '__main__':
     with app.app_context():
