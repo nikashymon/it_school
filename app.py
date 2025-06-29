@@ -1,4 +1,4 @@
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
 import os
 import random
@@ -80,7 +80,7 @@ def add_more_photos_and_comments():
     for i in range(26):
         description = random.choice(all_descriptions)
         photo = Photo(
-            src=f'../static/img/{i}.jpg',
+            src=f'{i}.jpg',
             likes=random.randint(0, 100),
             description=description,
             effect='none(0%)'
@@ -144,28 +144,35 @@ def getPhotos():
             'commentsNumber': db.session.query(Comment).filter_by(photo_id=photo.id).count()
         })
     return jsonify(photos_dict)
+@app.route('/debug/comments')
+def debug_comments():
+    photos_with_comments = db.session.query(Photo).join(Comment).all()
+    return jsonify([{
+        'photo_id': p.id,
+        'src': p.src,
+        'comment_count': len(p.comments)
+    } for p in photos_with_comments])
 
-
-@app.route('/api/photos/<int:photo_id>')
-def get_photo_with_comments(photo_id):
-    photo = db.session.query(Photo).all(photo_id)
+@app.route('/api/photos', methods=['POST'])
+def get_photo_with_comments():
+    src = request.form['src']
+    filename = src.split('/')[-1] if '/' in src else src
+    photo = db.session.query(Photo).filter_by(src=filename).first()
     if not photo:
         return jsonify({'error': 'Photo not found'}), 404
-    comments = db.session.query(Comment).filter_by(photo_id=photo_id).count()
+    comments = db.session.query(Comment).filter_by(photo_id=photo.id).all()
     response = {
-        'id': photo.id,
-        'src': photo.src,
-        'likes': photo.likes,
+        'src': filename,
         'description': photo.description,
+        'likes': photo.likes,
         'effect': photo.effect,
-        'comments': [comment.comment_text for comment in comments],
-        'comments_count': len(comments)
+        'commentsNumber': len(comments),
+        'comments': [comment.comment_text for comment in comments]
     }
 
+    print(f"Debug: Sending response for {filename}: {response}")
     return jsonify(response)
 
-def test():
-    ...
 
 if __name__ == '__main__':
     with app.app_context():
